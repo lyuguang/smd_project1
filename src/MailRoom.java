@@ -56,19 +56,17 @@ public class MailRoom {
         this.capacity = capacity;
         this.modeInt = modeInt;
 
-        if(modeInt == 1) {
-            idleRobots = new LinkedList<>();
-            for (int i = 0; i < numRobots; i++) {
-                idleRobots.add(new Robot(this, capacity));
-            }
-        }else{
-            activeRobots = new ArrayList<>();
-            for (int i = 0; i < numFloors; i++) {
-                activeRobots.add(new FloorRobot(this, capacity, i + 1));
-            }
-            activeRobots.add(new ColumnRobot(this, capacity, true));
-            activeRobots.add(new ColumnRobot(this, capacity, false));
+        idleRobots = new LinkedList<>();
+        // cycling 时候 等下记得改
+        for (int i = 0; i < numRobots; i++) {
+            idleRobots.add(new Robot(this, capacity));
         }
+        activeRobots = new ArrayList<>();
+        for (int i = 0; i < numFloors; i++) {
+            activeRobots.add(new FloorRobot(this, capacity, i + 1));
+        }
+        activeRobots.add(new ColumnRobot(this, capacity, true));
+        activeRobots.add(new ColumnRobot(this, capacity, false));
 
         deactivatingRobots = new ArrayList<>();
     }
@@ -82,13 +80,12 @@ public class MailRoom {
     }
 
     public void tick() {
-        for (Robot robot : (activeRobots)) {
-            System.out.printf("About to tick: " + robot.toString() + "\n");
-            robot.tick();
-        }
-        robotDispatch();
-
         if (modeInt == 1) { // Only for CYCLING mode
+            for (Robot robot : (activeRobots)) {
+                System.out.printf("About to tick: " + robot.toString() + "\n");
+                robot.tick();
+            }
+            robotDispatch();
             ListIterator<Robot> iter = deactivatingRobots.listIterator();
             while (iter.hasNext()) {
                 Robot robot = iter.next();
@@ -153,13 +150,20 @@ public class MailRoom {
     }
 
     void loadRobot(int floor, Robot robot) {
+        Collections.sort(waitingForDelivery[floor], Comparator.comparingInt(Letter::myArrival));
         ListIterator<Letter> iter = waitingForDelivery[floor].listIterator();
+        int reaminCapacity = robot.getReamingCapacity();
         while (iter.hasNext()) {  // In timestamp order
             Letter letter = iter.next();
-            if(robot.add(letter)){
+            if(letter.getWeight()==0){
+                robot.add(letter);
                 iter.remove();
-            }else {
-                break;
+            }
+            else if (letter.getWeight()>0 && letter.getWeight() < reaminCapacity){
+                robot.add(letter);
+                reaminCapacity -= letter.getWeight();
+                iter.remove();
+                robot.setReamingCapacity(reaminCapacity);
             }
         }
     }

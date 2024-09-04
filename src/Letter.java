@@ -5,7 +5,7 @@ public class Letter implements Comparable<Letter> {
     private final int room;
     private final int arrival;
 
-    protected final int weight;  // add the weight attribute to record the parcel weight
+    protected int weight;  // add the weight attribute to record the parcel weight
 
     @Override public int compareTo(Letter i) {
         int floorDiff = this.floor - i.floor;  // Don't really need this as only deliver to one floor at a time

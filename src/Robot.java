@@ -11,17 +11,19 @@ public class Robot {
     final protected MailRoom mailroom;
     final protected List<Letter> letters = new ArrayList<>();
 
-    private final int capacity;  // the robot capacity
+    //private final int capacity;  // the robot capacity
     private int currentLoad;
 
+    protected int  ReamingCapacity;
+
     public String toString() {
-        return "Id: " + id + " Floor: " + floor + ", Room: " + room + ", #items: " + numItems() + ", Load: " + currentLoad + "/" + capacity;
+        return "Id: " + id + " Floor: " + floor + ", Room: " + room + ", #items: " + numItems() + ", Load: " + currentLoad;
     }
 
     Robot(MailRoom mailroom, int capacity) {
         this.id = "R" + count++;
         this.mailroom = mailroom;
-        this.capacity = capacity;
+        this.ReamingCapacity = capacity;
         this.currentLoad = 0;
     }
 
@@ -112,7 +114,7 @@ public class Robot {
      * @param item
      */
     public boolean add(Letter item) {
-        if(currentLoad + item.getWeight() <= capacity) {
+        if(currentLoad + item.getWeight() <= ReamingCapacity) {
             letters.add(item);
             currentLoad += item.getWeight();
             return true;
@@ -122,6 +124,14 @@ public class Robot {
 
     void sort() {
         Collections.sort(letters);
+    }
+
+    public int getReamingCapacity(){
+        return ReamingCapacity;
+    }
+
+    public void setReamingCapacity(int ReamingCapacity){
+        this. ReamingCapacity = ReamingCapacity;
     }
 
 }

@@ -1,7 +1,4 @@
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.List;
-import java.util.ListIterator;
+import java.util.*;
 
 public class Robot {
     private static int count = 1;
@@ -33,7 +30,7 @@ public class Robot {
         this.room = room;
     }
 
-    private void move(Building.Direction direction) {
+    public void move(Building.Direction direction) {
         Building building = Building.getBuilding();
         int dfloor, droom;
         switch (direction) {
@@ -102,6 +99,9 @@ public class Robot {
 
     void sort() {
         Collections.sort(letters);
+    }
+    void reverseSort() {
+        Collections.sort(letters , Comparator.reverseOrder());
     }
 
     public int getReamingCapacity(){

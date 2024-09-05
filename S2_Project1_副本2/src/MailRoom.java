@@ -195,12 +195,64 @@ public class MailRoom {
                     }
                 }
             }
-            dispatchFlooringMode();
+            dispatchFlooringModeforfloorrobot();
+            // column robot
+            for(Robot robot: activeColumnRobots){
+                if(!robot.letters.isEmpty() && robot.getFloor()!= robot.letters.get(0).myFloor()){
+                    robot.move(Building.Direction.UP);
+                }else if (!robot.letters.isEmpty() && robot.getFloor() == robot.letters.get(0).myFloor()){
+
+                }else if (robot.letters.isEmpty() && robot.getFloor() != 0) {
+                    robot.move(Building.Direction.DOWN);
+                }
+            }
+            //column 的dispatch
+            int length = idleRobots.size();
+            while (length > 0) {
+                System.out.println("Dispatch at time = " + Simulation.now());
+                int fwei = floorWithEarliestItem();
+                // 如果有需要送达的物品，装载到他们身上
+                if (fwei >= 0) {
+
+                    //从mailRoom叫一个robot出来
+                    Robot robot = idleRobots.remove();
+                    length -= 1;
+                    //给robot装东西
+                    loadRobot(fwei, robot);
+                    // Room order for left to right delivery
+                    // 适用于left的column robot
+                    if (robot.getId().equals("R1")) {
+                        robot.sort();
+                    }
+                    // 对于右侧的column robot，重新排序，descending
+                    else if (robot.getId().equals("R2")) {
+                        robot.reverseSort();
+                    }
+
+                    // 将robot加入activerobotsColumn中
+                    activeColumnRobots.add(robot);
+                    System.out.println("Dispatch @ " + Simulation.now() +
+                            " of Robot " + robot.getId() + " with " + robot.numItems() + " item(s)");
+                    if (robot.getId().equals("R1")) {
+                        robot.place(0, 0);
+                    } else if (robot.getId().equals("R2")) {
+                        robot.place(0, numRooms + 1);
+                    }
+                }
+            }
+            // 有robot正在returning，所以需要从active变成idle
+            ListIterator<Robot> iter = deactivatingRobots.listIterator();
+            while (iter.hasNext()) {  // In timestamp order
+                Robot robot = iter.next();
+                iter.remove();
+                activeColumnRobots.remove(robot);
+                idleRobots.add(robot);
+            }
         }
 
     }
-    void dispatchFlooringMode(){
-        if (isstar == false) {
+    void dispatchFlooringModeforfloorrobot(){
+        if (!isstar) {
             isstar = true;
             int floorNum = 1;
             for (Robot robot : activeRobots) {

@@ -9,7 +9,7 @@ public class Robot {
     private int floor;
     private int room;
     final private MailRoom mailroom;
-    final private List<Letter> letters = new ArrayList<>();
+    final public List<Letter> letters = new ArrayList<>();
     protected int  ReamingCapacity;
 
     public String toString() {

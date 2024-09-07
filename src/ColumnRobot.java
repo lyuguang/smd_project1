@@ -1,53 +1,36 @@
-/**
- * @author Guangxing Lyu and Yujian Wang
- * @date 2/9/2024 AM11:48
- */
-public class ColumnRobot extends Robot{
-    private final boolean isLeftColumn;
-    private int destinationFloor;
+import java.util.List;
 
-    public ColumnRobot(MailRoom mailRoom, int capacity, boolean isLeftColumn) {
-        super(mailRoom, capacity);
-        this.isLeftColumn = isLeftColumn;
-        place(0, isLeftColumn ? 0 : Building.getBuilding().NUMROOMS + 1);
+public class ColumnRobot extends Robot implements IRobot{
+
+    private List<IRobot> activeRobots;
+    private int numRoom;
+    private int currFloor;
+    private int currRoom;
+
+    public void setActiveRobots(List<IRobot> activeRobots) {
+        this.activeRobots = activeRobots;
     }
 
-    @Override
-    void tick() {
-        if (isEmpty()) {
-            if (getFloor() > 0) {
-                move(Building.Direction.DOWN);
-            } else {
-                // At mailroom, try to load items
-                int floorWithItems = mailroom.floorWithEarliestItem();
-                if (floorWithItems >= 0) {
-                    mailroom.loadRobot(floorWithItems, this);
-                    if (!isEmpty()) {
-                        destinationFloor = floorWithItems + 1;
-                    }
-                }
-            }
-        } else {
-            if (getFloor() < destinationFloor) {
-                move(Building.Direction.UP);
-            } else if (getFloor() == destinationFloor) {
-                FloorRobot floorRobot = mailroom.getFloorRobot(destinationFloor);
-                if (floorRobot != null) {
-                    floorRobot.transfer(this);
-                    System.out.println("Transferring items from " + getId() + " to floor robot " + floorRobot.getId());
-                }
-                if (isEmpty()) {
-                    destinationFloor = 0;
-                }
-            }
-        }
+    public int getCurrFloor() {
+        return currFloor;
     }
 
-    public void setDestinationFloor(int floor){
-        this.destinationFloor = floor;
+    public void setCurrFloor(int currFloor) {
+        this.currFloor = currFloor;
     }
 
-    public boolean isAtMailRoom(){
-        return getFloor() == 0;
+    public int getCurrRoom() {
+        return currRoom;
     }
+
+    public void setCurrRoom(int currRoom) {
+        this.currRoom = currRoom;
+    }
+
+    public ColumnRobot(MailRoom mailroom, int capacity,List<IRobot> activeRobots,int numRoom) {
+        super(mailroom, capacity);
+        this.activeRobots = activeRobots;
+        this.numRoom = numRoom;
+    }
+
 }

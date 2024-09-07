@@ -1,171 +1,165 @@
 import java.util.*;
-
 import static java.lang.String.format;
 
 public class MailRoom {
     public enum Mode {CYCLING, FLOORING}
-    List<Letter>[] waitingForDelivery;
-    private final int numRobots;
 
-    Queue<Robot> idleRobots;
-    List<Robot> activeRobots;
-    List<Robot> deactivatingRobots; // Don't treat a robot as both active and idle by swapping directly
+    ItemQueue itemQueue;
+    RobotDispatcher robotDispatcher;
+    ArrivalManager arrivalManager;
+    DeliveryMode deliveryMode;
 
-    private int modeInt;
-    private int capacity;
+    private int robotCapacity;
+    private int numRooms;
 
-    public boolean someItems() {
-        for (int i = 0; i < Building.getBuilding().NUMFLOORS; i++) {
-            if (!waitingForDelivery[i].isEmpty()) {
-                    return true;
-            }
+    MailRoom(int numFloors, int numRobots, int robotCapacity, int numRooms, Mode mode) {
+        this.robotCapacity = robotCapacity;
+        this.numRooms = numRooms;
+
+        itemQueue = new ItemQueue(numFloors);
+        robotDispatcher = new RobotDispatcher();
+        arrivalManager = new ArrivalManager();
+
+        if (mode == Mode.CYCLING) {
+            deliveryMode = new CyclingMode();
+            for (int i = 0; i < numRobots; i++)
+                robotDispatcher.addIdleRobot(new Robot(this, robotCapacity));
+        } else if (mode == Mode.FLOORING) {
+            deliveryMode = new FlooringMode();
+            robotDispatcher.addIdleRobot(new ColumnRobot(this, robotCapacity, robotDispatcher.getActiveRobots(), numRooms));
+            robotDispatcher.addIdleRobot(new ColumnRobot(this, robotCapacity, robotDispatcher.getActiveRobots(), numRooms));
+            Building building = Building.getBuilding();
+            for (int i = 0; i < building.NUMFLOORS; i++)
+                robotDispatcher.addActiveRobot(new FlooringRobot(this, robotCapacity, robotDispatcher.getActiveColumnRobots(), numRooms, i+1, 1));
         }
-        return false;
     }
 
-    int floorWithEarliestItem() {
-        int floor = -1;
-        int earliest = Simulation.now() + 1;
-        for (int i = 0; i < Building.getBuilding().NUMFLOORS; i++) {
-            if (!waitingForDelivery[i].isEmpty()) {
-                int arrival = waitingForDelivery[i].getFirst().myArrival();
-                if (earliest > arrival) {
-                    floor = i;
-                    earliest = arrival;
+    public boolean someItems() {
+        return itemQueue.hasItems();
+    }
+
+    public void addToArrivals(int arrivalTime, Item item) {
+        arrivalManager.addToArrivals(arrivalTime, item);
+    }
+
+    public List<Item> getArrivingItems(int time) {
+        return arrivalManager.getArrivingItems(time);
+    }
+
+    void arrive(List<Item> items) {
+        for (Item item : items) {
+            itemQueue.addItem(item);
+            System.out.printf("Item: Time = %d Floor = %d Room = %d Weight = %d\n",
+                    item.myArrival(), item.myFloor(), item.myRoom(), item.myWeight());
+        }
+    }
+
+    public boolean hasArrivingItems(int time) {
+        return arrivalManager.hasArrivingItems(time);
+    }
+
+    public int checkEarly(IRobot leftRobot, IRobot rightRobot) {
+        List<Item> items1 = new ArrayList<>(leftRobot.getItems());
+        Collections.sort(items1, Comparator.comparingInt(Item::myArrival));
+
+        List<Item> items2 = new ArrayList<>(rightRobot.getItems());
+        Collections.sort(items2, Comparator.comparingInt(Item::myArrival));
+
+        if (items1.isEmpty() && items2.isEmpty()) {
+            return -1;
+        } else if (items1.isEmpty()) {
+            return 1;
+        } else if (items2.isEmpty()) {
+            return 0;
+        }
+
+        int earlyLeft = items1.get(0).myArrival();
+        int earlyRight = items2.get(0).myArrival();
+
+        if (earlyLeft < earlyRight) {
+            return 0;
+        } else if (earlyLeft > earlyRight) {
+            return 1;
+        } else {
+            return 0;
+        }
+    }
+
+    public int checkWaiting2(IRobot ref) {
+        int left = 0;
+        int right = 0;
+        IRobot leftRobot = null;
+        IRobot rightRobot = null;
+        for (IRobot robot : robotDispatcher.getActiveColumnRobots()) {
+            if (robot.getFloor() == ref.getFloor() && !robot.isEmpty() && robot.getItems().get(0).myFloor() == ref.getFloor()) {
+                if (robot.getRoom() == 0) {
+                    left = 1;
+                    leftRobot = robot;
+                } else if (robot.getRoom() == (numRooms + 1)) {
+                    right = 1;
+                    rightRobot = robot;
                 }
             }
         }
-        return floor;
-    }
-
-    public FloorRobot getFloorRobot(int floor) {
-        for (Robot robot : activeRobots) {
-            if (robot instanceof FloorRobot && ((FloorRobot) robot).getFloor() == floor) {
-                return (FloorRobot) robot;
-            }
+        if (left == 1 && right == 0) {
+            return 0;
+        } else if (left == 0 && right == 1) {
+            return 1;
+        } else if (left == 1 && right == 1) {
+            return (checkEarly(leftRobot, rightRobot) == 0) ? 0 : 1;
         }
-        return null;
-    }
 
-    MailRoom(int numFloors, int numRobots, int modeInt, int capacity) {
-        waitingForDelivery = new List[numFloors];
-        for (int i = 0; i < numFloors; i++) {
-            waitingForDelivery[i] = new LinkedList<>();
-        }
-        this.numRobots = numRobots;
-        this.capacity = capacity;
-        this.modeInt = modeInt;
-
-        idleRobots = new LinkedList<>();
-        // cycling 时候 等下记得改
-        for (int i = 0; i < numRobots; i++) {
-            idleRobots.add(new Robot(this, capacity));
-        }
-        activeRobots = new ArrayList<>();
-        for (int i = 0; i < numFloors; i++) {
-            activeRobots.add(new FloorRobot(this, capacity, i + 1));
-        }
-        activeRobots.add(new ColumnRobot(this, capacity, true));
-        activeRobots.add(new ColumnRobot(this, capacity, false));
-
-        deactivatingRobots = new ArrayList<>();
-    }
-
-    void arrive(List<Letter> items) {
-        for (Letter item : items) {
-            waitingForDelivery[item.myFloor()-1].add(item);
-            System.out.printf("Item: Time = %d Floor = %d Room = %d Weight = %d\n",
-                    item.myArrival(), item.myFloor(), item.myRoom(), 0);
-        }
+        return -1;
     }
 
     public void tick() {
-        if (modeInt == 1) { // Only for CYCLING mode
-            for (Robot robot : (activeRobots)) {
-                System.out.printf("About to tick: " + robot.toString() + "\n");
-                robot.tick();
-            }
-            robotDispatch();
-            ListIterator<Robot> iter = deactivatingRobots.listIterator();
-            while (iter.hasNext()) {
-                Robot robot = iter.next();
-                iter.remove();
-                activeRobots.remove(robot);
-                idleRobots.add(robot);
-            }
-        }
+        deliveryMode.tick(this);
     }
 
-    void robotDispatch() { // Can dispatch at most one robot; it needs to move out of the way for the next
-        if(modeInt == 1) {
-            dispatchCyclingMode();
-        }else if(modeInt == 0) {
-            dispatchFlooringMode();
-        }
+    void robotDispatch() {
+        deliveryMode.robotDispatch(this);
     }
 
-    void dispatchCyclingMode(){
-        System.out.println("Dispatch at time = " + Simulation.now());
-        // Need an idle robot and space to dispatch (could be a traffic jam)
-        if (!idleRobots.isEmpty() && !Building.getBuilding().isOccupied(0,0)) {
-            int fwei = floorWithEarliestItem();
-            if (fwei >= 0) {  // Need an item or items to deliver, starting with earliest
-                Robot robot = idleRobots.remove();
-                loadRobot(fwei, robot);
-                // Room order for left to right delivery
-                robot.sort();
-                activeRobots.add(robot);
-                System.out.println("Dispatch @ " + Simulation.now() +
-                        " of Robot " + robot.getId() + " with " + robot.numItems() + " item(s)");
-                robot.place(0, 0);
-            }
-        }
-    }
-
-    void dispatchFlooringMode() {
-        for (Robot robot : activeRobots) {
-            if (robot instanceof ColumnRobot) {
-                ColumnRobot columnRobot = (ColumnRobot) robot;
-                if (columnRobot.isEmpty() && columnRobot.isAtMailRoom()) {
-                    int floorWithItems = floorWithEarliestItem();
-                    if (floorWithItems >= 0) {
-                        loadRobot(floorWithItems, columnRobot);
-                        if (!columnRobot.isEmpty()) {
-                            columnRobot.setDestinationFloor(floorWithItems + 1);
-                        }
-                    }
-                }
-            }
-        }
-    }
-
-    void robotReturn(Robot robot) {
+    void robotReturn(IRobot robot) {
         Building building = Building.getBuilding();
         int floor = robot.getFloor();
         int room = robot.getRoom();
         assert floor == 0 && room == building.NUMROOMS+1: format("robot returning from wrong place - floor=%d, room ==%d", floor, room);
         assert robot.isEmpty() : "robot has returned still carrying at least one item";
         building.remove(floor, room);
-        deactivatingRobots.add(robot);
+        robotDispatcher.deactivateRobot(robot);
     }
 
-    void loadRobot(int floor, Robot robot) {
-        Collections.sort(waitingForDelivery[floor], Comparator.comparingInt(Letter::myArrival));
-        ListIterator<Letter> iter = waitingForDelivery[floor].listIterator();
-        int reaminCapacity = robot.getReamingCapacity();
-        while (iter.hasNext()) {  // In timestamp order
-            Letter letter = iter.next();
-            if(letter.getWeight()==0){
-                robot.add(letter);
+    void loadRobot(int floor, IRobot robot) {
+        List<Item> floorItems = itemQueue.getItemsForFloor(floor);
+        Collections.sort(floorItems, Comparator.comparingInt(Item::myArrival));
+
+        ListIterator<Item> iter = floorItems.listIterator();
+        int remainingCapacity = robot.getRemainingCapacity();
+        while (iter.hasNext()) {
+            Item item = iter.next();
+            if (item.myWeight() == 0) {
+                robot.add(item);
                 iter.remove();
             }
-            else if (letter.getWeight()>0 && letter.getWeight() < reaminCapacity){
-                robot.add(letter);
-                reaminCapacity -= letter.getWeight();
+            else if (item.myWeight() > 0 && item.myWeight() < remainingCapacity) {
+                robot.add(item);
+                remainingCapacity -= item.myWeight();
                 iter.remove();
-                robot.setReamingCapacity(reaminCapacity);
+                robot.setRemainingCapacity(remainingCapacity);
             }
         }
     }
 
+    public int getNumRooms() {
+        return numRooms;
+    }
+
+    public RobotDispatcher getRobotDispatcher() {
+        return robotDispatcher;
+    }
+
+    public ItemQueue getItemQueue() {
+        return itemQueue;
+    }
 }

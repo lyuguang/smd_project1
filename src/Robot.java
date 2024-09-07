@@ -1,36 +1,52 @@
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.List;
-import java.util.ListIterator;
+import java.util.*;
 
-public class Robot {
+public class Robot implements IRobot{
     private static int count = 1;
     final private String id;
-    private int floor;
-    private int room;
-    final protected MailRoom mailroom;
-    final protected List<Letter> letters = new ArrayList<>();
+    protected int floor;
+    protected int room;
+    final private MailRoom mailroom;
+    final protected List<Item> items = new ArrayList<>();
 
-    //private final int capacity;  // the robot capacity
-    private int currentLoad;
+    private int load;
+    protected int remainingCapacity;
 
-    protected int  ReamingCapacity;
-
+    @Override
     public String toString() {
-        return "Id: " + id + " Floor: " + floor + ", Room: " + room + ", #items: " + numItems() + ", Load: " + currentLoad;
+        return "Id: " + id + " Floor: " + floor + ", Room: " + room + ", #items: " + numItems() + ", Load: " + calLoad() ;
     }
 
     Robot(MailRoom mailroom, int capacity) {
         this.id = "R" + count++;
         this.mailroom = mailroom;
-        this.ReamingCapacity = capacity;
-        this.currentLoad = 0;
+        this.remainingCapacity = capacity;
     }
 
-    int getFloor() { return floor; }
-    int getRoom() { return room; }
-    boolean isEmpty() { return letters.isEmpty(); }
+    public void setFloor(int floor) {
+        this.floor = floor;
+    }
 
+    public void setRoom(int room) {
+        this.room = room;
+    }
+
+    @Override
+    public int getFloor() { return floor; }
+    @Override
+    public int getRoom() { return room; }
+
+    int calLoad() {
+        load = 0;
+        for (Item item : items) {
+            load+= item.myWeight();
+        }
+        return load;
+    }
+
+    @Override
+    public boolean isEmpty() { return items.isEmpty(); }
+
+    @Override
     public void place(int floor, int room) {
         Building building = Building.getBuilding();
         building.place(floor, room, id);
@@ -38,7 +54,8 @@ public class Robot {
         this.room = room;
     }
 
-    void move(Building.Direction direction) {
+    @Override
+    public void move(Building.Direction direction) {
         Building building = Building.getBuilding();
         int dfloor, droom;
         switch (direction) {
@@ -58,80 +75,86 @@ public class Robot {
         }
     }
 
-    /**
-     * @author Guangxing Lyu and Yujian Wang
-     * @param robot
-     */
-    void transfer(Robot robot) {  // Transfers every item assuming receiving robot has capacity
-        ListIterator<Letter> iter = robot.letters.listIterator();
+    @Override
+    public void transfer(IRobot robot) {  // Transfers every item assuming receiving robot has capacity
+        ListIterator<Item> iter = robot.getItems().listIterator();
         while(iter.hasNext()) {
-            Letter letter = iter.next();
-            if (this.add(letter)){
-                iter.remove();
-                robot.currentLoad -= letter.getWeight();
-            }else {
-                break;  // stop if we can't add more items
-            }
+            Item item = iter.next();
+            this.add(item);
+            this.remainingCapacity-= item.myWeight();
+            iter.remove();
+            robot.setRemainingCapacity((robot.getRemainingCapacity()+item.myWeight()));
         }
     }
 
-    void tick() {
+    @Override
+    public void tick() {
             Building building = Building.getBuilding();
-            if (letters.isEmpty()) {
+            if (items.isEmpty()) {
                 // Return to MailRoom
-                if (room == building.NUMROOMS + 1) { // in right end column
-                    move(Building.Direction.DOWN);  //move towards mailroom
+                if (room == building.NUMROOMS + 1) {
+                    move(Building.Direction.DOWN);
                 } else {
                     move(Building.Direction.RIGHT); // move towards right end column
                 }
-            } else {
-                // Items to deliver
-                if (floor == letters.getFirst().myFloor()) {
-                    // On the right floor
-                    if (room == letters.getFirst().myRoom()) { //then deliver all relevant items to that room
+            }
+            else {
+                if (floor == items.getFirst().myFloor()) {
+                    if (room == items.getFirst().myRoom()) { //then deliver all relevant items to that room
                         do {
-                            Simulation.deliver(letters.removeFirst());
-                        } while (!letters.isEmpty() && room == letters.getFirst().myRoom());
-                    } else {
+                            Item firstItem = items.getFirst();
+                            remainingCapacity += firstItem.myWeight();
+                            Simulation.deliver(items.removeFirst());
+
+
+                        } while (!items.isEmpty() && room == items.getFirst().myRoom());
+                    }
+                    else {
                         move(Building.Direction.RIGHT); // move towards next delivery
                     }
-                } else {
+                }
+                else {
                     move(Building.Direction.UP); // move towards floor
                 }
             }
     }
 
+    @Override
     public String getId() {
         return id;
     }
 
+    @Override
     public int numItems () {
-        return letters.size();
+        return items.size();
     }
 
-    /**
-     * @author Guangxing Lyu and Yujian Wang
-     * @param item
-     */
-    public boolean add(Letter item) {
-        if(currentLoad + item.getWeight() <= ReamingCapacity) {
-            letters.add(item);
-            currentLoad += item.getWeight();
-            return true;
-        }
-        return false;
+    @Override
+    public void add(Item item) {
+        items.add(item);
     }
 
-    void sort() {
-        Collections.sort(letters);
+    @Override
+    public void sort() {
+        Collections.sort(items);
     }
 
-    public int getReamingCapacity(){
-        return ReamingCapacity;
+    @Override
+    public void reverseSort() {Collections.sort(items, Comparator.reverseOrder());}
+
+    @Override
+    public int getRemainingCapacity() {
+        return remainingCapacity;
     }
 
-    public void setReamingCapacity(int ReamingCapacity){
-        this. ReamingCapacity = ReamingCapacity;
+    @Override
+    public void setRemainingCapacity(int remainingCapacity) {
+        this.remainingCapacity = remainingCapacity;
+    }
+
+    @Override
+    public List<Item> getItems() {
+        return items;
     }
 
 }

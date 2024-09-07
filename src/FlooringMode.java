@@ -72,7 +72,7 @@ public class FlooringMode implements DeliveryMode {
             if (!items.isEmpty() && r.getFloor() != items.get(0).myFloor()) {
                 r.move(Building.Direction.UP);
             } else if (!items.isEmpty() && r.getFloor() == items.get(0).myFloor()) {
-                // do nothing, just waiting
+                // nothing
             } else if (items.isEmpty() && r.getFloor() != 0) {
                 r.move(Building.Direction.DOWN);
             }

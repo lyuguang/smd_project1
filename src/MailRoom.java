@@ -116,10 +116,6 @@ public class MailRoom {
         deliveryMode.tick(this);
     }
 
-    void robotDispatch() {
-        deliveryMode.robotDispatch(this);
-    }
-
     void robotReturn(IRobot robot) {
         Building building = Building.getBuilding();
         int floor = robot.getFloor();

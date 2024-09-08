@@ -5,7 +5,7 @@ public class Item implements Comparable<Item> {
     protected final int arrival;
     protected int weight = 0;
     @Override public int compareTo(Item i) {
-        int floorDiff = this.floor - i.floor;  // Don't really need this as only deliver to one floor at a time
+        int floorDiff = this.floor - i.floor;
         return (floorDiff == 0) ? this.room - i.room : floorDiff;
     }
 
